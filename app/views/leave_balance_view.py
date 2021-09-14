@@ -47,6 +47,21 @@ from django.db import connection,transaction
 from django.db.models import F
 import json
 from django.core import serializers
+from django.conf import settings
+from django.core.mail import send_mail
+from django.core import mail
+from django.utils.html import strip_tags
+from django.core.mail import EmailMultiAlternatives
+from django.template.loader import render_to_string
+from io import BytesIO
+from django.template.loader import get_template
+from xhtml2pdf import pisa  
+from django.core.files import File
+from django.core.files.storage import default_storage
+from django.core.files.storage import FileSystemStorage
+from django.conf import settings
+from django.conf import settings as django_settings
+import os
 
 #from app.models import QuillModel
 
@@ -55,36 +70,81 @@ def index(request):
 
     # Child to parrent relationship
     # balance = Leave_Balance.objects.filter(leave_type__is_active = '1',employee__is_active = "1")
+    myDate = datetime.datetime.now()
+    context_dict={'context': request.user.username}
+    template = get_template('mail_templates/testing.html')
+    html  = template.render(context_dict)
+    result = BytesIO()
+
+    myDate = datetime.datetime.now()
+
+    pdf = pisa.pisaDocument(BytesIO(html.encode("UTF-8")), result)
+    
+    if not pdf.err:
+        # return HttpResponse(result.getvalue(), content_type='application/pdf')
+        response = HttpResponse(result.getvalue(), content_type='application/pdf')
+        filename = "appoinment"+'-'+request.user.username+"-"+myDate.strftime("%d-%m-%Y")+".pdf"
+        content = "inline; filename=%s" %(filename)
+        
+        with open(os.path.join(django_settings.MEDIA_ROOT, filename), 'wb+') as output:
+            appoinment_letter = pisa.pisaDocument(BytesIO(html.encode("UTF-8")), output)
+            
+            # subject = 'welcome to TTF world'
+            # html_message = render_to_string('mail_templates/testing.html', {'context': request.user.username})
+            # plain_message = strip_tags(html_message)
+            # email_from = settings.EMAIL_HOST_USER
+            # recipient_list = ['ajithrockers007@gmail.com']
+        
+            # email = EmailMultiAlternatives(
+            #     subject,
+            #     plain_message,
+            #     email_from,
+            #     recipient_list,
+            # )
+
+            # email.attach_alternative(html_message, 'text/html')
+            # email.attach('appoinment_letter.pdf', result.getvalue() , 'application/pdf')
+            # email.send()
    
-    employees = Employee.objects.filter(is_active='1')
 
-    types = Leave_Type.objects.filter(is_active='1')
+        # download = request.GET.get("download")
+        # if download:
+        #     content = "attachment; filename=%s" %(filename)
 
-    balance = Leave_Balance.objects.filter(is_active='1')
-
-    # balance = Leave_Balance.objects.raw('SELECT leave_balance.id,leave_balance.balance,lt.name FROM leave_balance JOIN leave_type lt ON lt.id = leave_balance.leave_type_id where leave_balance.is_active = "1" ')
-   
-    # print(types[0].leave_type_id_balance.all.bala)
-
-    res = ""
-
-
-    for bal in balance:
-        res = str(res) + str({'name': 'name', 'type': 'leave_type', 'unit': 'leave_unit', 'description': 'leave_no_of_days', 'id': 'leave_id'}) + (",") 
-        string_res = res.strip(' " " ') #.replace("'","")
-        Leave_Types =  eval(string_res)
+        response['Content-Disposition'] = content
+        return response
+    # return HttpResponse('exit')
 
     
-    # print(res)
+    # employees = Employee.objects.filter(is_active='1')
 
-    context = {
-        'employees': employees,
-        'types': types,
-        'balance': balance,
+    # types = Leave_Type.objects.filter(is_active='1')
+
+    # balance = Leave_Balance.objects.filter(is_active='1')
+
+    # # balance = Leave_Balance.objects.raw('SELECT leave_balance.id,leave_balance.balance,lt.name FROM leave_balance JOIN leave_type lt ON lt.id = leave_balance.leave_type_id where leave_balance.is_active = "1" ')
+   
+    # # print(types[0].leave_type_id_balance.all.bala)
+
+    # res = ""
+
+
+    # for bal in balance:
+    #     res = str(res) + str({'name': 'name', 'type': 'leave_type', 'unit': 'leave_unit', 'description': 'leave_no_of_days', 'id': 'leave_id'}) + (",") 
+    #     string_res = res.strip(' " " ') #.replace("'","")
+    #     Leave_Types =  eval(string_res)
+
+    
+    # # print(res)
+
+    # context = {
+    #     'employees': employees,
+    #     'types': types,
+    #     'balance': balance,
         
-    }
+    # }
 
-    return render(request, "leave_balance/index.html", context)
+    # return render(request, "leave_balance/index.html", context)
     
     # return HttpResponse(types)
 
@@ -172,7 +232,7 @@ def date_change(request):
     # print(customize_balance)
 
     less_balance = list(Customize_Leave_Balance.objects.filter(leave_type_id=request.GET.get('type_id'), employee_id=request.GET.get('emp_id'), date__lt=final_date ).order_by('-date') ) 
-    print(less_balance)
+    # print(less_balance)
 
     tmpJson = serializers.serialize("json",type)
     tmpObj = json.loads(tmpJson)
